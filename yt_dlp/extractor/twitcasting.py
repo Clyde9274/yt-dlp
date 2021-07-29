@@ -5,6 +5,12 @@ import itertools
 import re
 
 from .common import InfoExtractor
+from ..compat import (
+    compat_parse_qs,
+    compat_urllib_parse_urlencode,
+    compat_urllib_parse_urlparse,
+    compat_urllib_parse_urlunparse,
+)
 from ..downloader.websocket import has_websockets
 from ..utils import (
     clean_html,
@@ -100,10 +106,18 @@ class TwitCastingIE(InfoExtractor):
         if is_live and not m3u8_url:
             m3u8_url = 'https://twitcasting.tv/%s/metastream.m3u8' % uploader_id
         if is_live and has_websockets and stream_server_data:
+            wpass = self._get_cookies(url).get('wpass')
             qq = qualities(['base', 'mobilesource', 'main'])
             for mode, ws_url in stream_server_data['llfmp4']['streams'].items():
+                parsed_url = list(compat_urllib_parse_urlparse(ws_url))
+                query = dict(compat_parse_qs(parsed_url[4]))
+                if wpass:
+                    query.update({'word': wpass.value})
+                parsed_url[4] = compat_urllib_parse_urlencode(query)
+                final_url = compat_urllib_parse_urlunparse(parsed_url)
+
                 formats.append({
-                    'url': ws_url,
+                    'url': final_url,
                     'format_id': 'ws-%s' % mode,
                     'ext': 'mp4',
                     'quality': qq(mode),
